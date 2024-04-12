@@ -172,19 +172,48 @@ inline float SQR(float val) { return val*val; }
         }
       }
     }
+    // hdl64e_s3
+    else if (config_.model == "64E_S3"){
+      // timing table calculation, based on veloview source code
+      // https://gitlab.kitware.com/LidarView/velodyneplugin/-/blame/master/VelodynePacketInterpreters/vtkVelodyneLegacyPacketInterpreter.cxx
+      timing_offsets.resize(12);
+      for (size_t i=0; i < timing_offsets.size(); ++i){
+        timing_offsets[i].resize(32);
+      }
+      // constants
+      int HDL_LASER_PER_FIRING = 32;
+      int HDL_FIRING_PER_PKT = 12;
+      bool dual_mode = false;
+      // compute timing offsets
+      for (size_t x = 0; x < timing_offsets.size(); ++x){
+        for (size_t y = 0; y < timing_offsets[x].size(); ++y){
+          int dsr_reversed = HDL_LASER_PER_FIRING - y - 1;
+          int block_reversed = HDL_FIRING_PER_PKT - x - 1;
+          if (dual_mode){
+            double time_offset_micro_sec[4] = { 3.5, 4.7, 5.9, 7.2 };
+            timing_offsets[x][y] = -(std::floor(static_cast<double>(block_reversed) / 4.0) * 57.6 + time_offset_micro_sec[(dsr_reversed % 4)] + (dsr_reversed / 4) * time_offset_micro_sec[3]) * 1e-6;  // seconds
+          }
+          else{
+            double time_offset_micro_sec[4] = { 2.34, 3.54, 4.74, 6.0 };
+            timing_offsets[x][y] = -(std::floor(static_cast<double>(block_reversed) / 2.0) * 48.0 + time_offset_micro_sec[(dsr_reversed % 4)] + (dsr_reversed / 4) * time_offset_micro_sec[3]) * 1e-6;  // seconds
+          }
+        }
+      }
+    }
+    // vls128
     else if (config_.model == "VLS128"){
-
+      // timing table calculation
       timing_offsets.resize(3);
       for(size_t i=0; i < timing_offsets.size(); ++i)
       {
         timing_offsets[i].resize(17); // 17 (+1 for the maintenance time after firing group 8)
       }
-
+      // constants
       double full_firing_cycle = VLS128_SEQ_TDURATION * 1e-6; //seconds
       double single_firing = VLS128_CHANNEL_TDURATION * 1e-6; // seconds
       double offset_paket_time = VLS128_TOH_ADJUSTMENT * 1e-6; //seconds
       double sequenceIndex, firingGroupIndex;
-      // Compute timing offsets
+      // compute timing offsets
       for (size_t x = 0; x < timing_offsets.size(); ++x){
         for (size_t y = 0; y < timing_offsets[x].size(); ++y){
 
